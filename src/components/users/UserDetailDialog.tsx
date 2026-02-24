@@ -39,7 +39,7 @@ export function UserDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg overflow-y-auto h-[calc(95vh)]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full gradient-primary text-lg font-semibold text-primary-foreground">

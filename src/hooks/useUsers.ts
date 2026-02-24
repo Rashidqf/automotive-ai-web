@@ -6,6 +6,8 @@ import {
   deleteUser,
   getVehicleHistory,
   adminCreateUser,
+  assignUserDealerships,
+  removeUserDealership,
   type UpdateUserBody,
   type UserListItem,
   type AdminCreateUserBody,
@@ -72,6 +74,28 @@ export function useAdminCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: AdminCreateUserBody) => adminCreateUser(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [USERS_KEY] });
+    },
+  });
+}
+
+export function useAssignUserDealerships() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, dealershipIds }: { userId: string; dealershipIds: string[] }) =>
+      assignUserDealerships(userId, dealershipIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [USERS_KEY] });
+    },
+  });
+}
+
+export function useRemoveUserDealership() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, dealershipId }: { userId: string; dealershipId: string }) =>
+      removeUserDealership(userId, dealershipId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [USERS_KEY] });
     },

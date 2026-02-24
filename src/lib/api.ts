@@ -74,6 +74,11 @@ export interface UserVehicle {
   isPreferredStation: boolean;
 }
 
+export interface UserDealershipRef {
+  id: string;
+  name: string;
+}
+
 export interface UserListItem {
   id: string;
   name: string;
@@ -82,6 +87,7 @@ export interface UserListItem {
   status: "active" | "inactive";
   createdAt: string;
   dealership: string | null;
+  dealerships?: UserDealershipRef[];
   vehiclesCount: number;
   vehicles: UserVehicle[];
 }
@@ -128,6 +134,7 @@ export interface UserDetailResponse {
     createdAt: string;
     image?: unknown;
     dealership: string | null;
+    dealerships?: UserDealershipRef[];
     vehicles: (UserVehicle & { vin?: string; year?: number; make?: string; model?: string; lastServiceDate?: string; preferredServiceCenter?: string })[];
   };
   message?: string;
@@ -153,6 +160,23 @@ export function updateUser(id: string, body: UpdateUserBody): Promise<{ success:
 
 export function deleteUser(id: string): Promise<{ success: boolean; data: null; message?: string }> {
   return apiRequest(`/admin/users/${id}`, { method: "DELETE" });
+}
+
+export function assignUserDealerships(
+  userId: string,
+  dealershipIds: string[]
+): Promise<{ success: boolean; data: { dealerships: UserDealershipRef[] }; message?: string }> {
+  return apiRequest(`/admin/users/${userId}/dealerships`, {
+    method: "PUT",
+    body: JSON.stringify({ dealershipIds }),
+  });
+}
+
+export function removeUserDealership(
+  userId: string,
+  dealershipId: string
+): Promise<{ success: boolean; data: { dealerships: UserDealershipRef[] }; message?: string }> {
+  return apiRequest(`/admin/users/${userId}/dealerships/${dealershipId}`, { method: "DELETE" });
 }
 
 // ─── Admin Vehicle History (service history, recalls, NHTSA, maintenance) ───
@@ -215,6 +239,110 @@ export function adminCreateUser(body: AdminCreateUserBody): Promise<{ success: b
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// ─── Admin Dealerships ────────────────────────────────────────────────────
+export interface DealershipListItem {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  username: string;
+  referralCode: string;
+  createdAt: string;
+  status: string;
+}
+
+export interface DealershipsListResponse {
+  success: boolean;
+  data: {
+    dealerships: DealershipListItem[];
+    pagination: Pagination;
+  };
+  message?: string;
+}
+
+export function getDealershipsList(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<DealershipsListResponse> {
+  const sp = new URLSearchParams();
+  if (params.page != null) sp.set("page", String(params.page));
+  if (params.limit != null) sp.set("limit", String(params.limit));
+  if (params.search != null && params.search.trim()) sp.set("search", params.search.trim());
+  const q = sp.toString();
+  return apiRequest<DealershipsListResponse>(`/admin/dealerships${q ? `?${q}` : ""}`);
+}
+
+export interface DealershipDetailResponse {
+  success: boolean;
+  data: {
+    id: string;
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    username: string;
+    referralCode: string;
+    status: string;
+    createdAt: string;
+  };
+  message?: string;
+}
+
+export function getDealershipById(id: string): Promise<DealershipDetailResponse> {
+  return apiRequest<DealershipDetailResponse>(`/admin/dealerships/${id}`);
+}
+
+export interface CreateDealershipBody {
+  name: string;
+  email: string;
+  password: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  username?: string;
+}
+
+export interface UpdateDealershipBody {
+  name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  username?: string;
+  status?: "active" | "inactive";
+}
+
+export function createDealership(body: CreateDealershipBody): Promise<{ success: boolean; data: unknown; message?: string }> {
+  return apiRequest("/admin/dealerships", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateDealership(id: string, body: UpdateDealershipBody): Promise<{ success: boolean; data: unknown; message?: string }> {
+  return apiRequest(`/admin/dealerships/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteDealership(id: string): Promise<{ success: boolean; data: null; message?: string }> {
+  return apiRequest(`/admin/dealerships/${id}`, { method: "DELETE" });
 }
 
 export { getToken };

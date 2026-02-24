@@ -31,6 +31,7 @@ import {
   Phone,
   Mail,
   Building2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserDetailDialog } from "@/components/users/UserDetailDialog";
@@ -38,10 +39,12 @@ import { UserVehicleCard } from "@/components/users/UserVehicleCard";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { VehicleHistoryDialog } from "@/components/vehicles/VehicleHistoryDialog";
 import { toast } from "sonner";
-import { useUsersList, useUpdateUser, useDeleteUser, useVehicleHistory, useAdminCreateUser } from "@/hooks/useUsers";
+import { useUsersList, useUpdateUser, useDeleteUser, useVehicleHistory, useAdminCreateUser, useAssignUserDealerships, useRemoveUserDealership } from "@/hooks/useUsers";
 import type { UserListItem, UserVehicle } from "@/lib/api";
 import type { VehicleRecord } from "@/data/mockData";
+import { Badge } from "@/components/ui/badge";
 import { AddUserDialog } from "@/components/users/AddUserDialog";
+import { AssignDealershipModal } from "@/components/users/AssignDealershipModal";
 
 const LIMIT = 9;
 
@@ -59,6 +62,7 @@ const Users = () => {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [addUserOpen, setAddUserOpen] = useState(false);
+  const [assignDealershipUser, setAssignDealershipUser] = useState<UserListItem | null>(null);
 
   const { data, isLoading, isError, refetch } = useUsersList({
     page,
@@ -69,6 +73,8 @@ const Users = () => {
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
   const createUserMutation = useAdminCreateUser();
+  const assignDealershipsMutation = useAssignUserDealerships();
+  const removeDealershipMutation = useRemoveUserDealership();
   const { data: historyData, isLoading: historyLoading } = useVehicleHistory(selectedVehicleId);
 
   const users = data?.data?.users ?? [];
@@ -140,6 +146,27 @@ const Users = () => {
     toast.success("User created successfully (auto-verified, no OTP required)");
     setAddUserOpen(false);
   }, []);
+
+  const handleOpenAssignDealership = useCallback((user: UserListItem) => {
+    setAssignDealershipUser(user);
+  }, []);
+
+  const handleAssignDealershipSuccess = useCallback(() => {
+    toast.success("Dealerships assigned successfully");
+    setAssignDealershipUser(null);
+  }, []);
+
+  const handleRemoveDealership = useCallback(
+    async (userId: string, dealershipId: string) => {
+      try {
+        await removeDealershipMutation.mutateAsync({ userId, dealershipId });
+        toast.success("Dealership removed from user");
+      } catch {
+        toast.error("Failed to remove dealership");
+      }
+    },
+    [removeDealershipMutation]
+  );
 
   const viewUserForDialog = selectedUser
     ? {
@@ -248,10 +275,34 @@ const Users = () => {
                   <Mail className="h-4 w-4 text-muted-foreground" />
                   <span className="text-foreground">{user.email || "—"}</span>
                 </div>
-                {user.dealership && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-foreground">{user.dealership}</span>
+                {(user.dealerships?.length ? user.dealerships.length > 0 : user.dealership) && (
+                  <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                    <Building2 className="h-4 w-4 text-muted-foreground shrink-0 self-center" />
+                    {user.dealerships?.length ? (
+                      user.dealerships.map((d) => (
+                        <Badge
+                          key={d.id}
+                          variant="secondary"
+                          className="gap-1 pr-1 font-normal"
+                        >
+                          <span className="truncate max-w-[120px]">{d.name}</span>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${d.name}`}
+                            className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveDealership(user.id, d.id);
+                            }}
+                            disabled={removeDealershipMutation.isPending}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-foreground">{user.dealership ?? "—"}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -279,6 +330,10 @@ const Users = () => {
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => handleEditUser(user)}>
                   <Edit className="h-4 w-4" /> Edit
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1 text-accent" onClick={() => handleOpenAssignDealership(user)} title="Assign to dealership">
+                  <Building2 className="h-4 w-4" />
+                  Assign
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1 text-accent" onClick={() => toast.success(`Offer sent to ${user.name}`)}>
                   <Gift className="h-4 w-4" />
@@ -381,6 +436,17 @@ const Users = () => {
         }}
         onSuccess={handleAddUserSuccess}
         isSubmitting={createUserMutation.isPending}
+      />
+
+      <AssignDealershipModal
+        user={assignDealershipUser}
+        open={!!assignDealershipUser}
+        onOpenChange={(open) => !open && setAssignDealershipUser(null)}
+        onSuccess={handleAssignDealershipSuccess}
+        onAssign={async (userId, dealershipIds) => {
+          await assignDealershipsMutation.mutateAsync({ userId, dealershipIds });
+        }}
+        isSubmitting={assignDealershipsMutation.isPending}
       />
     </DashboardLayout>
   );
