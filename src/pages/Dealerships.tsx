@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,7 @@ function formatDate(iso: string) {
 
 const Dealerships = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -92,6 +94,15 @@ const Dealerships = () => {
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (user?.userType === "dealership" || user?.userType === "employee") {
+      if (user?.dealershipId) {
+        navigate(`/dealerships/${user.dealershipId}`, { replace: true });
+      }
+    }
+  }, [user?.userType, user?.dealershipId, navigate]);
+
+  const isAdmin = user?.userType === "admin";
   const { data, isLoading, isError, refetch } = useDealershipsList({
     page,
     limit: PAGE_SIZE,
@@ -286,15 +297,27 @@ const Dealerships = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  if (user && (user.userType === "dealership" || user.userType === "employee") && !user.dealershipId) {
+    return (
+      <DashboardLayout title="Dealerships" subtitle="Loading...">
+        <div className="flex min-h-[200px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="Dealerships" subtitle="Manage your dealership network">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Button className="gap-2" onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4" />
-            Add Dealership
-          </Button>
+          {isAdmin && (
+            <Button className="gap-2" onClick={handleOpenCreate}>
+              <Plus className="h-4 w-4" />
+              Add Dealership
+            </Button>
+          )}
         </div>
 
         {/* Search */}

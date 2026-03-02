@@ -56,6 +56,9 @@ export interface GetMeResponse {
     full_name?: string;
     email?: string;
     userType: string;
+    dealershipId?: string | null;
+    access?: string[];
+    employee?: { _id: string; dealership: string; access?: string[] };
     [key: string]: unknown;
   };
 }
@@ -343,6 +346,257 @@ export function updateDealership(id: string, body: UpdateDealershipBody): Promis
 
 export function deleteDealership(id: string): Promise<{ success: boolean; data: null; message?: string }> {
   return apiRequest(`/admin/dealerships/${id}`, { method: "DELETE" });
+}
+
+// ─── Admin Employees ───────────────────────────────────────────────────────
+export interface EmployeeListItem {
+  id: string;
+  name: string;
+  designation: string;
+  joiningDate?: string;
+  status: string;
+  createdAt: string;
+  access?: string[];
+  dealershipName?: string;
+  dealershipId?: string;
+  hasLogin?: boolean;
+  createdById?: string;
+  createdByRole?: string;
+  createdByName?: string;
+}
+
+export interface EmployeesListResponse {
+  success: boolean;
+  data: {
+    employees: EmployeeListItem[];
+    pagination: Pagination;
+  };
+  message?: string;
+}
+
+export function getEmployeesList(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  dealershipId?: string;
+  adminOnly?: boolean;
+}): Promise<EmployeesListResponse> {
+  const sp = new URLSearchParams();
+  if (params.page != null) sp.set("page", String(params.page));
+  if (params.limit != null) sp.set("limit", String(params.limit));
+  if (params.search != null && params.search.trim()) sp.set("search", params.search.trim());
+  if (params.dealershipId != null) sp.set("dealershipId", params.dealershipId);
+  if (params.adminOnly === true) sp.set("adminOnly", "1");
+  const q = sp.toString();
+  return apiRequest<EmployeesListResponse>(`/admin/employees${q ? `?${q}` : ""}`);
+}
+
+export interface CreateEmployeeBody {
+  dealership?: string;
+  name: string;
+  designation?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  joiningDate?: string | null;
+  access?: string[];
+}
+
+export function createEmployee(body: CreateEmployeeBody): Promise<{ success: boolean; data: unknown; message?: string }> {
+  return apiRequest("/admin/employees", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getEmployeeById(id: string): Promise<{ success: boolean; data: EmployeeListItem & { email?: string; phone?: string; dealership?: unknown }; message?: string }> {
+  return apiRequest(`/admin/employees/${id}`);
+}
+
+export function updateEmployee(id: string, body: Partial<CreateEmployeeBody> & { status?: string }): Promise<{ success: boolean; data: unknown; message?: string }> {
+  return apiRequest(`/admin/employees/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateEmployeeAccess(id: string, access: string[]): Promise<{ success: boolean; data: unknown; message?: string }> {
+  return apiRequest(`/admin/employees/${id}/access`, {
+    method: "PATCH",
+    body: JSON.stringify({ access }),
+  });
+}
+
+export function deleteEmployee(id: string): Promise<{ success: boolean; data: null; message?: string }> {
+  return apiRequest(`/admin/employees/${id}`, { method: "DELETE" });
+}
+
+// ─── VIN Decode (NHTSA via mob-app) ────────────────────────────────────────
+export interface VinDecodeResult {
+  success: boolean;
+  data?: {
+    vin: string;
+    year: number | null;
+    make: string | null;
+    model: string | null;
+    trim?: string | null;
+    bodyClass?: string | null;
+    vehicleType?: string | null;
+    [key: string]: unknown;
+  };
+  message?: string;
+}
+
+export function decodeVin(vin: string): Promise<VinDecodeResult> {
+  const clean = vin.replace(/\s+/g, "").toUpperCase();
+  return apiRequest<VinDecodeResult>(`/mob-app/vin/decode/${encodeURIComponent(clean)}`);
+}
+
+// ─── Service Bulletins (dealership) ────────────────────────────────────────
+export interface ServiceBulletinItem {
+  id: string;
+  customerId?: string;
+  customerName?: string;
+  vin: string;
+  vehicleInfo: string;
+  serviceType: string;
+  description?: string;
+  date: string;
+  nextDueDate: string | null;
+  mileageAtService: number;
+  status: "pending" | "completed" | "overdue";
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ServiceBulletinsListResponse {
+  success: boolean;
+  data: {
+    bulletins: ServiceBulletinItem[];
+    pagination: Pagination;
+  };
+  message?: string;
+}
+
+export function getServiceBulletins(params: {
+  dealershipId: string;
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+  upcoming?: boolean;
+}): Promise<ServiceBulletinsListResponse> {
+  const sp = new URLSearchParams();
+  if (params.dealershipId) sp.set("dealershipId", params.dealershipId);
+  if (params.page != null) sp.set("page", String(params.page));
+  if (params.limit != null) sp.set("limit", String(params.limit));
+  if (params.status && ["pending", "completed", "overdue"].includes(params.status)) sp.set("status", params.status);
+  if (params.search?.trim()) sp.set("search", params.search.trim());
+  if (params.upcoming) sp.set("upcoming", "1");
+  const q = sp.toString();
+  return apiRequest<ServiceBulletinsListResponse>(`/admin/service-bulletins${q ? `?${q}` : ""}`);
+}
+
+export interface CreateServiceBulletinBody {
+  dealership?: string;
+  vin: string;
+  vehicleInfo?: string;
+  customerName?: string;
+  customerId?: string | null;
+  serviceType: string;
+  description?: string;
+  date: string;
+  nextDueDate?: string | null;
+  mileageAtService?: number;
+  status?: "pending" | "completed" | "overdue";
+  notes?: string;
+}
+
+export function createServiceBulletin(body: CreateServiceBulletinBody): Promise<{ success: boolean; data: { id: string }; message?: string }> {
+  return apiRequest("/admin/service-bulletins", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ─── Workshops (dealership) ────────────────────────────────────────────────
+export interface WorkshopDaySchedule {
+  dayOfWeek: number;
+  openTime?: string;
+  closeTime?: string;
+  isClosed?: boolean;
+}
+
+export interface WorkshopListItem {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string;
+  hours: WorkshopDaySchedule[];
+  specialties: string[];
+  waitTime: string;
+  status: string;
+  rating: number | null;
+  reviewCount: number;
+  createdAt: string;
+}
+
+export interface WorkshopsListResponse {
+  success: boolean;
+  data: { workshops: WorkshopListItem[]; pagination: Pagination };
+  message?: string;
+}
+
+export function getWorkshopsList(params: {
+  dealershipId: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<WorkshopsListResponse> {
+  const sp = new URLSearchParams();
+  if (params.dealershipId) sp.set("dealershipId", params.dealershipId);
+  if (params.page != null) sp.set("page", String(params.page));
+  if (params.limit != null) sp.set("limit", String(params.limit));
+  if (params.search?.trim()) sp.set("search", params.search.trim());
+  const q = sp.toString();
+  return apiRequest<WorkshopsListResponse>(`/admin/workshops${q ? `?${q}` : ""}`);
+}
+
+export interface CreateWorkshopBody {
+  dealership?: string;
+  name: string;
+  address: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  phone?: string;
+  hours?: WorkshopDaySchedule[];
+  specialties?: string[];
+  waitTime?: string;
+  status?: "active" | "inactive";
+}
+
+export function createWorkshop(body: CreateWorkshopBody): Promise<{ success: boolean; data: { id: string }; message?: string }> {
+  return apiRequest("/admin/workshops", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function getWorkshopById(id: string): Promise<{ success: boolean; data: WorkshopListItem; message?: string }> {
+  return apiRequest(`/admin/workshops/${id}`);
+}
+
+export function updateWorkshop(id: string, body: Partial<CreateWorkshopBody>): Promise<{ success: boolean; data: unknown; message?: string }> {
+  return apiRequest(`/admin/workshops/${id}`, { method: "PUT", body: JSON.stringify(body) });
+}
+
+export function deleteWorkshop(id: string): Promise<{ success: boolean; data: null; message?: string }> {
+  return apiRequest(`/admin/workshops/${id}`, { method: "DELETE" });
 }
 
 export { getToken };

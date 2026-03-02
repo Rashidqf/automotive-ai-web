@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -13,14 +13,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/hooks/useAuth";
 
-const navItems = [
+const navItems: { icon: React.ComponentType<{ className?: string }>; label: string; path: string; roles?: string[]; access?: string }[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Users, label: "User Management", path: "/users" },
+  { icon: Users, label: "User Management", path: "/users", roles: ["admin"] },
   { icon: Building2, label: "Dealerships", path: "/dealerships" },
-  { icon: UserCog, label: "Employees", path: "/employees" },
-  { icon: Gift, label: "Offers & Engagement", path: "/offers" },
-  { icon: BarChart3, label: "Analytics", path: "/analytics" },
+  { icon: UserCog, label: "Employees", path: "/employees", roles: ["admin"] },
+  { icon: Gift, label: "Offers & Engagement", path: "/offers", roles: ["admin", "employee"], access: "offers" },
+  { icon: BarChart3, label: "Analytics", path: "/analytics", roles: ["admin", "employee"], access: "analytics" },
 ];
 
 interface SidebarProps {
@@ -31,12 +32,40 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const visibleNavItems = useMemo(() => {
+    if (!user) return [];
+    if (user.userType === "dealership") {
+      const items = navItems.filter((i) => i.path === "/");
+      if (user.dealershipId) {
+        items.push({ icon: Building2, label: "My Dealership", path: `/dealerships/${user.dealershipId}`, roles: undefined, access: undefined });
+      }
+      return items;
+    }
+    if (user.userType === "employee") {
+      return navItems
+        .filter((item) => {
+          if (item.path === "/users" || item.path === "/employees") return false;
+          if (item.roles && !item.roles.includes("employee")) return false;
+          if (item.access && !user.access?.includes(item.access)) return false;
+          return true;
+        })
+        .map((item) =>
+          item.path === "/dealerships" && user.dealershipId
+            ? { ...item, path: `/dealerships/${user.dealershipId}`, label: "My Dealership" }
+            : item
+        );
+    }
+    return navItems;
+  }, [user]);
 
   useEffect(() => {
     onCollapsedChange?.(collapsed);
   }, [collapsed, onCollapsedChange]);
 
   const handleLogout = () => {
+    signOut();
     navigate("/auth");
   };
 
@@ -67,7 +96,7 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-3 scrollbar-thin">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <li key={item.path}>

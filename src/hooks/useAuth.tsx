@@ -6,6 +6,10 @@ export interface AuthUser {
   email?: string;
   full_name?: string;
   userType: string;
+  dealershipId?: string | null;
+  access?: string[];
+  /** For employees: "admin" = created by admin (sees admin dashboard), "dealership" = dealer employee */
+  createdByRole?: string | null;
 }
 
 interface AuthContextType {
@@ -46,6 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: u.email,
           full_name: u.full_name,
           userType: u.userType,
+          dealershipId: u.dealershipId ?? null,
+          access: Array.isArray(u.access) ? u.access : (u.employee?.access ? [...u.employee.access] : []),
         };
         setUser(authUser);
         localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
@@ -69,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: u?.email,
         full_name: u?.full_name,
         userType: u?.userType ?? "user",
+        dealershipId: (u as { dealershipId?: string })?.dealershipId ?? null,
+        access: Array.isArray((u as { access?: string[] })?.access) ? (u as { access: string[] }).access : [],
+        createdByRole: (u as { createdByRole?: string })?.createdByRole ?? null,
       };
       localStorage.setItem(AUTH_TOKEN_KEY, t);
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));

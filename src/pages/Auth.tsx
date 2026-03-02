@@ -27,7 +27,16 @@ const Auth = () => {
       const res = await login(email.trim(), password);
       if (res.success) {
         toast.success("Welcome back!");
-        navigate("/", { replace: true });
+        const u = (res.data as { user?: { userType?: string; createdByRole?: string } })?.user;
+        const userType = u?.userType;
+        // Admin employees see admin dashboard; dealer employees and dealership users see dealer dashboard
+        if (userType === "employee") {
+          navigate(u?.createdByRole === "admin" ? "/" : "/dealerships", { replace: true });
+        } else if (userType === "dealership") {
+          navigate("/dealerships", { replace: true });
+        } else {
+          navigate("/", { replace: true });
+        }
       } else {
         toast.error((res as { message?: string }).message || "Login failed.");
       }

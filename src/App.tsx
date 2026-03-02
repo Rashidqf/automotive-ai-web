@@ -2,12 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { LayoutOutlet } from "@/components/layout/LayoutOutlet";
 import Index from "./pages/Index";
 import Users from "./pages/Users";
-// Vehicles page merged into Users
 import Offers from "./pages/Offers";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
@@ -30,18 +30,19 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
-          {/* /vehicles route removed - merged into /users */}
-            <Route path="/dealerships" element={<ProtectedRoute><Dealerships /></ProtectedRoute>} />
-            <Route path="/dealerships/:id" element={<ProtectedRoute><DealershipDashboard /></ProtectedRoute>} />
-            <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-            <Route path="/offers" element={<ProtectedRoute><Offers /></ProtectedRoute>} />
-            <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            {/* Protected routes: LayoutOutlet shows Admin layout (per-page) or Dealer layout (sidebar) for /dealerships/:id */}
+            <Route element={<ProtectedRoute><LayoutOutlet /></ProtectedRoute>}>
+              <Route path="/" element={<Index />} />
+              <Route path="/users" element={<ProtectedRoute allowedRoles={["admin"]}><Users /></ProtectedRoute>} />
+              <Route path="/dealerships" element={<Dealerships />} />
+              <Route path="/dealerships/:id" element={<ProtectedRoute requireDealershipMatch><DealershipDashboard /></ProtectedRoute>} />
+              <Route path="/employees" element={<ProtectedRoute allowedRoles={["admin"]}><Employees /></ProtectedRoute>} />
+              <Route path="/offers" element={<ProtectedRoute allowedRoles={["admin", "employee"]} allowedAccess={["offers"]}><Offers /></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute allowedRoles={["admin", "employee"]} allowedAccess={["analytics"]}><Analytics /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute allowedRoles={["admin"]}><Settings /></ProtectedRoute>} />
+              <Route path="/notifications" element={<ProtectedRoute allowedRoles={["admin", "employee"]} allowedAccess={["notifications"]}><Notifications /></ProtectedRoute>} />
+              <Route path="/account" element={<Account />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

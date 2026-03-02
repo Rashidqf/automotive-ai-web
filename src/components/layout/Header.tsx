@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
   title: string;
@@ -18,8 +19,10 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   const handleLogout = () => {
+    signOut();
     navigate("/auth");
   };
 

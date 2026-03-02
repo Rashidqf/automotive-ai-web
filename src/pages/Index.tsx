@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
@@ -6,9 +7,19 @@ import { EngagementChart } from "@/components/dashboard/EngagementChart";
 import { Users, Car, Gift, Activity } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.userType === "dealership" || user?.userType === "employee") {
+      if (user?.dealershipId) {
+        navigate(`/dealerships/${user.dealershipId}`, { replace: true });
+      }
+    }
+  }, [user?.userType, user?.dealershipId, navigate]);
 
   const handleAddUser = () => {
     navigate("/users");

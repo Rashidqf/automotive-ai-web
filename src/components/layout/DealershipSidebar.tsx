@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   UserCog,
   ChevronLeft,
@@ -7,9 +7,12 @@ import {
   LogOut,
   ArrowLeft,
   ClipboardList,
+  LayoutDashboard,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -20,6 +23,7 @@ interface NavItem {
 const dealershipNavItems: NavItem[] = [
   { icon: ClipboardList, label: "Car Service Bulletins", tab: "service-bulletins" },
   { icon: UserCog, label: "Team", tab: "employees" },
+  { icon: Wrench, label: "Workshops", tab: "workshops" },
 ];
 
 interface DealershipSidebarProps {
@@ -32,12 +36,15 @@ interface DealershipSidebarProps {
 export function DealershipSidebar({ dealershipName, activeTab, onTabChange, onCollapsedChange }: DealershipSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const isAdmin = user?.userType === "admin";
 
   useEffect(() => {
     onCollapsedChange?.(collapsed);
   }, [collapsed, onCollapsedChange]);
 
   const handleLogout = () => {
+    signOut();
     navigate("/auth");
   };
 
@@ -69,19 +76,33 @@ export function DealershipSidebar({ dealershipName, activeTab, onTabChange, onCo
         </div>
       </div>
 
-      {/* Back Button */}
+      {/* Back / Dashboard - Admin sees "Back to Dealerships"; Dealer/Employee see "Dashboard" */}
       <div className="p-3 border-b border-border">
-        <button
-          onClick={handleBackToDealerships}
-          className={cn(
-            "nav-item w-full text-muted-foreground hover:bg-secondary hover:text-foreground",
-            collapsed && "justify-center px-2"
-          )}
-          title={collapsed ? "Back to Dealerships" : undefined}
-        >
-          <ArrowLeft className="h-5 w-5 shrink-0" />
-          {!collapsed && <span className="animate-fade-in">Back to Admin</span>}
-        </button>
+        {isAdmin ? (
+          <button
+            onClick={handleBackToDealerships}
+            className={cn(
+              "nav-item w-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              collapsed && "justify-center px-2"
+            )}
+            title={collapsed ? "Back to Dealerships" : undefined}
+          >
+            <ArrowLeft className="h-5 w-5 shrink-0" />
+            {!collapsed && <span className="animate-fade-in">Back to Dealerships</span>}
+          </button>
+        ) : (
+          <Link
+            to="/"
+            className={cn(
+              "nav-item w-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              collapsed && "justify-center px-2"
+            )}
+            title={collapsed ? "Dashboard" : undefined}
+          >
+            <LayoutDashboard className="h-5 w-5 shrink-0" />
+            {!collapsed && <span className="animate-fade-in">Dashboard</span>}
+          </Link>
+        )}
       </div>
 
       {/* Navigation */}

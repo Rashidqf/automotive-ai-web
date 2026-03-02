@@ -37,12 +37,23 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, UserCog, Edit, Trash2, MoreVertical, Shield } from "lucide-react";
-import { mockEmployees, Employee } from "@/data/mockData";
+import {
+  useEmployeesList,
+  useCreateEmployee,
+  useUpdateEmployee,
+  useUpdateEmployeeAccessMutation,
+  useDeleteEmployee,
+} from "@/hooks/useEmployees";
+import { useDealershipsList } from "@/hooks/useDealerships";
+import type { EmployeeListItem } from "@/lib/api";
 
 const emptyEmployee = {
   name: "",
   designation: "",
   joiningDate: "",
+  dealershipId: "",
+  email: "",
+  password: "",
 };
 
 const accessOptions = [
@@ -61,23 +72,27 @@ const accessOptions = [
 ];
 
 const Employees = () => {
-  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
-  const [managingEmployee, setManagingEmployee] = useState<Employee | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeListItem | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeListItem | null>(null);
+  const [managingEmployee, setManagingEmployee] = useState<EmployeeListItem | null>(null);
   const [selectedAccess, setSelectedAccess] = useState<string[]>([]);
   const [formData, setFormData] = useState(emptyEmployee);
   const { toast } = useToast();
 
-  const filteredEmployees = employees.filter(
-    (employee) =>
-      employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.designation.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const { data, isLoading } = useEmployeesList({ page, limit: 20, search: searchTerm || undefined, adminOnly: true });
+  const { data: dealershipsData } = useDealershipsList({ page: 1, limit: 10, search: "" });
+  const employees: EmployeeListItem[] = data?.data?.employees ?? [];
+  const dealerships = dealershipsData?.data?.dealerships ?? [];
+
+  const createMutation = useCreateEmployee();
+  const updateMutation = useUpdateEmployee();
+  const updateAccessMutation = useUpdateEmployeeAccessMutation();
+  const deleteMutation = useDeleteEmployee();
 
   const handleOpenCreate = () => {
     setEditingEmployee(null);
@@ -85,17 +100,20 @@ const Employees = () => {
     setIsDialogOpen(true);
   };
 
-  const handleOpenEdit = (employee: Employee) => {
+  const handleOpenEdit = (employee: EmployeeListItem) => {
     setEditingEmployee(employee);
     setFormData({
       name: employee.name,
-      designation: employee.designation,
-      joiningDate: employee.joiningDate,
+      designation: employee.designation || "",
+      joiningDate: employee.joiningDate || "",
+      dealershipId: employee.dealershipId || "",
+      email: "",
+      password: "",
     });
     setIsDialogOpen(true);
   };
 
-  const handleOpenAccessDialog = (employee: Employee) => {
+  const handleOpenAccessDialog = (employee: EmployeeListItem) => {
     setManagingEmployee(employee);
     setSelectedAccess(employee.access || []);
     setIsAccessDialogOpen(true);
@@ -103,29 +121,32 @@ const Employees = () => {
 
   const handleAccessChange = (accessId: string, checked: boolean) => {
     if (checked) {
-      setSelectedAccess([...selectedAccess, accessId]);
+      setSelectedAccess((prev) => [...prev, accessId]);
     } else {
-      setSelectedAccess(selectedAccess.filter((id) => id !== accessId));
+      setSelectedAccess((prev) => prev.filter((id) => id !== accessId));
     }
   };
 
-  const handleSaveAccess = () => {
-    if (managingEmployee) {
-      setEmployees(employees.map(e =>
-        e.id === managingEmployee.id
-          ? { ...e, access: selectedAccess }
-          : e
-      ));
+  const handleSaveAccess = async () => {
+    if (!managingEmployee) return;
+    try {
+      await updateAccessMutation.mutateAsync({ id: managingEmployee.id, access: selectedAccess });
       toast({
         title: "Access Updated",
         description: `${managingEmployee.name}'s access permissions have been updated.`,
       });
       setIsAccessDialogOpen(false);
       setManagingEmployee(null);
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: (e as Error)?.message || "Failed to update access.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.designation || !formData.joiningDate) {
       toast({
         title: "Validation Error",
@@ -134,52 +155,73 @@ const Employees = () => {
       });
       return;
     }
-
-    if (editingEmployee) {
-      setEmployees(employees.map(e =>
-        e.id === editingEmployee.id
-          ? { ...e, ...formData }
-          : e
-      ));
+    try {
+      if (editingEmployee) {
+        await updateMutation.mutateAsync({
+          id: editingEmployee.id,
+          body: {
+            name: formData.name,
+            designation: formData.designation,
+            joiningDate: formData.joiningDate || undefined,
+          },
+        });
+        toast({
+          title: "Employee Updated",
+          description: `${formData.name} has been updated successfully.`,
+        });
+      } else {
+        if (!formData.dealershipId) {
+          toast({ title: "Validation Error", description: "Please select a dealership.", variant: "destructive" });
+          return;
+        }
+        const payload: { dealership: string; name: string; designation?: string; joiningDate?: string; email?: string; password?: string } = {
+          dealership: formData.dealershipId,
+          name: formData.name,
+          designation: formData.designation,
+          joiningDate: formData.joiningDate || undefined,
+        };
+        if (formData.email?.trim() && formData.password) {
+          payload.email = formData.email.trim();
+          payload.password = formData.password;
+        }
+        await createMutation.mutateAsync(payload);
+        toast({
+          title: "Employee Added",
+          description: payload.email ? "Employee added with dashboard login." : `${formData.name} has been added successfully.`,
+        });
+      }
+      setFormData(emptyEmployee);
+      setEditingEmployee(null);
+      setIsDialogOpen(false);
+    } catch (e: unknown) {
       toast({
-        title: "Employee Updated",
-        description: `${formData.name} has been updated successfully.`,
-      });
-    } else {
-      const employee: Employee = {
-        id: String(employees.length + 1),
-        name: formData.name,
-        designation: formData.designation,
-        joiningDate: formData.joiningDate,
-        status: "active",
-        createdAt: new Date().toISOString().split("T")[0],
-        access: [],
-      };
-      setEmployees([...employees, employee]);
-      toast({
-        title: "Employee Added",
-        description: `${employee.name} has been added successfully.`,
+        title: "Error",
+        description: (e as Error)?.message || "Failed to save employee.",
+        variant: "destructive",
       });
     }
-
-    setFormData(emptyEmployee);
-    setEditingEmployee(null);
-    setIsDialogOpen(false);
   };
 
-  const handleDelete = () => {
-    if (employeeToDelete) {
-      setEmployees(employees.filter(e => e.id !== employeeToDelete.id));
+  const handleDelete = async () => {
+    if (!employeeToDelete) return;
+    try {
+      await deleteMutation.mutateAsync(employeeToDelete.id);
       toast({
         title: "Employee Deleted",
         description: `${employeeToDelete.name} has been removed.`,
       });
       setEmployeeToDelete(null);
       setIsDeleteDialogOpen(false);
+    } catch (e: unknown) {
+      toast({
+        title: "Error",
+        description: (e as Error)?.message || "Failed to delete employee.",
+        variant: "destructive",
+      });
     }
   };
 
-  const openDeleteDialog = (employee: Employee) => {
+  const openDeleteDialog = (employee: EmployeeListItem) => {
     setEmployeeToDelete(employee);
     setIsDeleteDialogOpen(true);
   };
@@ -208,11 +250,19 @@ const Employees = () => {
 
         {/* Table */}
         <div className="rounded-lg border bg-card">
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Designation</TableHead>
+                <TableHead>Dealership</TableHead>
+                <TableHead>Created by</TableHead>
+                <TableHead>Login</TableHead>
                 <TableHead>Joining Date</TableHead>
                 <TableHead>Access</TableHead>
                 <TableHead>Status</TableHead>
@@ -220,10 +270,25 @@ const Employees = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredEmployees.map((employee) => (
+              {employees.map((employee) => (
                 <TableRow key={employee.id} className="group">
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell>{employee.designation}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{employee.dealershipName ?? "—"}</TableCell>
+                  <TableCell className="text-sm">
+                    {employee.createdByRole ? (
+                      <Badge variant="outline" className="text-xs capitalize">{employee.createdByRole}</Badge>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {employee.hasLogin ? (
+                      <Badge variant="default" className="text-xs">Yes</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">No</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{employee.joiningDate}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -278,6 +343,7 @@ const Employees = () => {
               ))}
             </TableBody>
           </Table>
+          )}
         </div>
       </div>
 
@@ -291,6 +357,22 @@ const Employees = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {!editingEmployee && (
+              <div className="space-y-2">
+                <Label htmlFor="dealership">Dealership *</Label>
+                <select
+                  id="dealership"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={formData.dealershipId}
+                  onChange={(e) => setFormData({ ...formData, dealershipId: e.target.value })}
+                >
+                  <option value="">Select dealership</option>
+                  {dealerships.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">Full Name *</Label>
               <Input
@@ -318,6 +400,31 @@ const Employees = () => {
                 onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
               />
             </div>
+            {!editingEmployee && (
+              <>
+                <p className="text-sm font-medium text-muted-foreground">Give dashboard login (optional)</p>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-email">Email</Label>
+                  <Input
+                    id="emp-email"
+                    type="email"
+                    placeholder="employee@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-password">Password (min 6 characters)</Label>
+                  <Input
+                    id="emp-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
             <Button className="w-full" onClick={handleSave}>
               {editingEmployee ? "Update Employee" : "Add Employee"}
             </Button>
