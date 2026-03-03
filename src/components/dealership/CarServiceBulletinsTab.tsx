@@ -69,6 +69,15 @@ const serviceTypes = [
 
 const PAGE_SIZE = 10;
 
+function getDefaultNextDueDate(): string {
+  const today = new Date();
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const lastDayOfNextMonth = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+  const day = Math.min(today.getDate(), lastDayOfNextMonth);
+  const defaultDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), day);
+  return defaultDate.toISOString().split("T")[0];
+}
+
 interface CarServiceBulletinsTabProps {
   dealershipId: string;
 }
@@ -85,7 +94,7 @@ export function CarServiceBulletinsTab({ dealershipId }: CarServiceBulletinsTabP
     serviceType: "",
     description: "",
     date: new Date().toISOString().split("T")[0],
-    nextDueDate: "",
+    nextDueDate: getDefaultNextDueDate(),
     mileageAtService: "",
     notes: "",
     status: "completed" as "pending" | "completed" | "overdue",
@@ -174,7 +183,7 @@ export function CarServiceBulletinsTab({ dealershipId }: CarServiceBulletinsTabP
       serviceType: "",
       description: "",
       date: new Date().toISOString().split("T")[0],
-      nextDueDate: "",
+      nextDueDate: getDefaultNextDueDate(),
       mileageAtService: "",
       notes: "",
       status: "completed",
@@ -520,6 +529,7 @@ export function CarServiceBulletinsTab({ dealershipId }: CarServiceBulletinsTabP
                   type="date"
                   value={newBulletin.nextDueDate}
                   onChange={(e) => setNewBulletin((prev) => ({ ...prev, nextDueDate: e.target.value }))}
+                  defaultValue={new Date().toISOString().split("T")[0]}
                 />
               </div>
             </div>

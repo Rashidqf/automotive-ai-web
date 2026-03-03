@@ -66,7 +66,7 @@ export function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md  overflow-y-auto h-[calc(95vh)]">
+      <DialogContent className="max-w-md  overflow-y-auto max-h-[calc(95vh)] h-auto">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
         </DialogHeader>
