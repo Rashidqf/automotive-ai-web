@@ -170,14 +170,14 @@ const Users = () => {
 
   const viewUserForDialog = selectedUser
     ? {
-        id: selectedUser.id,
-        name: selectedUser.name,
-        email: selectedUser.email,
-        phone: selectedUser.phone,
-        vehicles: selectedUser.vehicles,
-        status: selectedUser.status,
-        createdAt: selectedUser.createdAt,
-      }
+      id: selectedUser.id,
+      name: selectedUser.name,
+      email: selectedUser.email,
+      phone: selectedUser.phone,
+      vehicles: selectedUser.vehicles,
+      status: selectedUser.status,
+      createdAt: selectedUser.createdAt,
+    }
     : null;
 
   return (
@@ -324,7 +324,7 @@ const Users = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 pt-4 border-t border-border">
+              <div className="flex items-center gap-2 pt-4 border-t border-border flex-wrap justify-center">
                 <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => handleViewUser(user)}>
                   <Eye className="h-4 w-4" /> View
                 </Button>
